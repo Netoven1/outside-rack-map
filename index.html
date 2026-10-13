@@ -1,1 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Outside Rack Slot Manager</title>
+  <style>
+    :root{
+      --navy:#07384d;--navy2:#0b5870;--bg:#f4f7fb;--card:#ffffff;--border:#d7e0ea;--muted:#64748b;--text:#0f172a;
+      --qa:#fff200;--road:#030303;--waitcc:#bae6fd;--wt:#38bdf8;--l11:#b735b7;--repair:#f97316;--full:#4ade80;--special:#ef1f1f;
+    }
+    *{box-sizing:border-box} body{margin:0;font-family:Arial,Helvetica,sans-serif;background:var(--bg);color:var(--text)}
+    header{background:linear-gradient(135deg,var(--navy),var(--navy2));color:white;padding:20px 24px;border-bottom:5px solid #072c3e}
+    header h1{margin:0;font-size:30px;letter-spacing:.2px} header p{margin:6px 0 0;color:#c7e7f4}
+    main{padding:18px;max-width:1600px;margin:auto}
+    .top{display:grid;grid-template-columns:260px repeat(4,minmax(150px,1fr));gap:12px;margin-bottom:16px}.stat{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px;text-align:center}.stat.big{background:#06485d;color:white}.stat .num{font-size:28px;font-weight:800}.stat .label{font-size:13px;color:var(--muted)}.stat.big .label{color:#c7e7f4}
+    .toolbar{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px;align-items:end}.field{display:flex;flex-direction:column;gap:5px;font-weight:700;font-size:13px}.field input,.field select,.field textarea{border:1px solid var(--border);border-radius:8px;padding:9px 10px;font-size:14px;min-width:190px;background:white}.field textarea{min-height:90px;resize:vertical}.btn{border:0;border-radius:8px;padding:10px 14px;font-weight:800;cursor:pointer;background:#0b5870;color:white}.btn.secondary{background:#e2e8f0;color:#0f172a}.btn.danger{background:#dc2626;color:white}.btn:disabled{opacity:.5;cursor:not-allowed}
+    .layout{display:grid;grid-template-columns:minmax(800px,1fr) 360px;gap:16px}.panel{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:14px;box-shadow:0 6px 16px rgba(15,23,42,.06)}
+    .gridScroll{overflow:auto}.rackGrid{display:grid;grid-template-columns:42px repeat(30,42px);gap:4px;min-width:1320px}.head,.rowhead{background:#eef2f7;border:1px solid var(--border);border-radius:7px;display:flex;align-items:center;justify-content:center;font-weight:800;height:30px}.rowhead{height:38px}.slot{height:38px;border:1px solid rgba(15,23,42,.36);border-radius:7px;font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center;cursor:pointer;color:#0f172a;position:relative}.slot:hover{outline:3px solid #0ea5e9;z-index:2}.slot.selected{outline:4px solid #0ea5e9}.slot.road{background:var(--road);color:white;cursor:not-allowed;writing-mode:vertical-rl;text-orientation:mixed;letter-spacing:.08em;font-size:10px}.slot.qa{background:var(--qa)}.slot.waitcc{background:var(--waitcc)}.slot.wt{background:var(--wt)}.slot.l11{background:var(--l11);color:white}.slot.repair{background:var(--repair)}.slot.full{background:var(--full)}.slot.special{background:var(--special);color:white}.slot.dim{opacity:.18}.slot.filled{box-shadow:inset 0 0 0 2px rgba(255,255,255,.65)}
+    .legend{display:grid;grid-template-columns:7fr 1fr 2fr 2fr 3fr 2fr 2fr 6fr 2fr 3fr;gap:4px;margin-top:10px;min-width:1320px}.legendBox{border:1px solid var(--border);border-radius:8px;overflow:hidden;text-align:center;background:white}.legendTitle{min-height:46px;padding:8px 6px;font-weight:900;display:flex;align-items:center;justify-content:center;line-height:1.1}.legendInfo{padding:8px 4px;font-size:12px}.legendInfo strong{font-size:18px;display:block}.roadTitle{background:#030303;color:white}
+    .details h2{margin-top:0}.meta{font-size:13px;color:var(--muted);margin-bottom:12px}.details input,.details select,.details textarea{width:100%}.note{font-size:12px;color:var(--muted);line-height:1.35}.footerNote{margin-top:14px;color:var(--muted);font-size:12px}.hidden{display:none}
+    @media(max-width:1000px){.top{grid-template-columns:1fr 1fr}.layout{grid-template-columns:1fr}.details{order:-1}}
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Outside Rack Slot Manager</h1>
+    <p>GitHub Pages version • saves in this browser • import/export CSV for Excel</p>
+  </header>
+  <main>
+    <section class="top">
+      <div class="stat big"><div class="num"><span id="usedCount">0</span> / 192</div><div class="label">rack spaces used</div></div>
+      <div class="stat"><div class="num" id="freeCount">192</div><div class="label">free spaces</div></div>
+      <div class="stat"><div class="num" id="blockedCount">0</div><div class="label">blocked / hold</div></div>
+      <div class="stat"><div class="num" id="testingCount">0</div><div class="label">testing</div></div>
+      <div class="stat"><div class="num" id="passedCount">0</div><div class="label">passed</div></div>
+    </section>
 
+    <section class="toolbar panel">
+      <label class="field">Search Rack S/N or notes<input id="search" placeholder="4007351500, blocked, repair"></label>
+      <label class="field">Filter area<select id="areaFilter"><option value="all">All areas</option></select></label>
+      <label class="field">Filter status<select id="statusFilter"><option value="all">All statuses</option><option>Available</option><option>Testing</option><option>Waiting</option><option>Blocked</option><option>Hold</option><option>Repair</option><option>Passed</option></select></label>
+      <button class="btn secondary" id="resetFilters">Clear filters</button>
+      <button class="btn" id="exportCsv">Export CSV</button>
+      <label class="btn secondary" for="importFile">Import CSV</label><input id="importFile" type="file" accept=".csv" class="hidden">
+      <button class="btn danger" id="clearAll">Clear all local data</button>
+    </section>
+
+    <section class="layout">
+      <div class="panel">
+        <div class="gridScroll">
+          <div id="rackGrid" class="rackGrid"></div>
+          <div class="legend">
+            <div class="legendBox"><div class="legendTitle qa">QA (Stages IN / Inspection and Below)</div><div class="legendInfo">7 columns × 8 rows<strong>56 spaces</strong></div></div>
+            <div class="legendBox"><div class="legendTitle roadTitle">ROADWAY</div><div class="legendInfo">—</div></div>
+            <div class="legendBox"><div class="legendTitle waitcc">L10.5 Passed Waiting CC</div><div class="legendInfo">2 columns × 8 rows<strong>16 spaces</strong></div></div>
+            <div class="legendBox"><div class="legendTitle wt">L10.5 WT</div><div class="legendInfo">2 columns × 8 rows<strong>16 spaces</strong></div></div>
+            <div class="legendBox"><div class="legendTitle l11">L11 WK Waiting for test</div><div class="legendInfo">3 columns × 8 rows<strong>24 spaces</strong></div></div>
+            <div class="legendBox"><div class="legendTitle roadTitle">ROADWAY</div><div class="legendInfo">—</div></div>
+            <div class="legendBox"><div class="legendTitle repair">Repair</div><div class="legendInfo">2 columns × 8 rows<strong>16 spaces</strong></div></div>
+            <div class="legendBox"><div class="legendTitle full">FULL PASS (PACKING)</div><div class="legendInfo">6 columns × 8 rows<strong>48 spaces</strong></div></div>
+            <div class="legendBox"><div class="legendTitle special">Special</div><div class="legendInfo">2 columns × 8 rows<strong>16 spaces</strong></div></div>
+            <div class="legendBox"><div class="legendTitle roadTitle">ROADWAY</div><div class="legendInfo">—</div></div>
+          </div>
+        </div>
+        <p class="footerNote">Capacity: 24 rack columns × 8 rows = 192 rack spaces. Black roadways are not counted.</p>
+      </div>
+      <aside class="panel details">
+        <h2>Rack Details</h2>
+        <p class="meta" id="selectedText">Select a colored rack slot to edit it.</p>
+        <label class="field">Slot<input id="slotInput" readonly></label><br>
+        <label class="field">Area<input id="areaInput" readonly></label><br>
+        <label class="field">Rack S/N<input id="rackInput" placeholder="4007351500"></label><br>
+        <label class="field">Status<select id="statusInput"><option>Available</option><option>Testing</option><option>Waiting</option><option>Blocked</option><option>Hold</option><option>Repair</option><option>Passed</option></select></label><br>
+        <label class="field">Notes<textarea id="notesInput" placeholder="Issue, owner, next action..."></textarea></label><br>
+        <button class="btn" id="saveBtn" disabled>Save slot</button>
+        <button class="btn secondary" id="clearBtn" disabled>Clear rack</button>
+        <p class="note">This GitHub Pages version stores changes in the current browser. Use Export CSV to share updates or open in Excel.</p>
+      </aside>
+    </section>
+  </main>
+<script>
+(function(){
+  const cols=['A','B','C','D','E','F','G','H','I','J','K','L','M','N','O','P','Q','R','S','T','U','V','W','X','Y','Z','AA','AB','AC','AD'];
+  const zones={};
+  function set(list,zone){list.forEach(c=>zones[c]=zone)}
+  set(['A','B','C','D','E','F','G'],'QA'); set(['H'],'ROADWAY'); set(['I','J'],'L10.5 Passed Waiting CC'); set(['K','L'],'L10.5 WT'); set(['M','N','O'],'L11 WK Waiting for test'); set(['P','Q'],'ROADWAY'); set(['R','S'],'Repair'); set(['T','U','V','W','X','Y'],'FULL PASS (PACKING)'); set(['Z','AA'],'Special'); set(['AB','AC','AD'],'ROADWAY');
+  const classMap={'QA':'qa','ROADWAY':'road','L10.5 Passed Waiting CC':'waitcc','L10.5 WT':'wt','L11 WK Waiting for test':'l11','Repair':'repair','FULL PASS (PACKING)':'full','Special':'special'};
+  const areas=['QA','L10.5 Passed Waiting CC','L10.5 WT','L11 WK Waiting for test','Repair','FULL PASS (PACKING)','Special'];
+  const storageKey='outsideRackMapGitHubV1';
+  let data=JSON.parse(localStorage.getItem(storageKey)||'{}'); let selected=null;
+  const $=id=>document.getElementById(id);
+  areas.forEach(a=>{const o=document.createElement('option');o.value=a;o.textContent=a;$('areaFilter').appendChild(o)});
+  function slotId(c,r){return c+r}
+  function isRoad(c){return zones[c]==='ROADWAY'}
+  function getVal(id){return data[id] || {RackSN:'',Status:'Available',Notes:'',UpdatedBy:'',UpdatedAt:''}}
+  function saveData(){localStorage.setItem(storageKey,JSON.stringify(data))}
+  function usedSlots(){return Object.entries(data).filter(([id,v])=>v.RackSN||v.Notes||(['Blocked','Hold','Repair','Testing','Waiting','Passed'].includes(v.Status))).length}
+  function render(){
+    const grid=$('rackGrid'); grid.innerHTML=''; grid.appendChild(div('head',''));
+    cols.forEach(c=>grid.appendChild(div('head',c)));
+    for(let r=1;r<=8;r++){grid.appendChild(div('rowhead',r)); cols.forEach(c=>{
+      const id=slotId(c,r), area=zones[c], v=getVal(id); const b=document.createElement('button'); b.type='button'; b.className='slot '+classMap[area]; b.dataset.id=id; b.dataset.area=area;
+      if(isRoad(c)){b.disabled=true;b.textContent='ROADWAY';b.title='Roadway - no rack space'} else {b.textContent=v.RackSN?String(v.RackSN).slice(-4):id; if(v.RackSN||v.Notes||v.Status!=='Available')b.classList.add('filled'); b.title=`Slot: ${id}\nArea: ${area}\nRack S/N: ${v.RackSN||'Empty'}\nStatus: ${v.Status||'Available'}\nNotes: ${v.Notes||''}`}
+      if(selected===id)b.classList.add('selected'); grid.appendChild(b);
+    })}
+    applyFilters(); stats();
+  }
+  function div(cls,text){const d=document.createElement('div');d.className=cls;d.textContent=text;return d}
+  function stats(){const used=usedSlots(); $('usedCount').textContent=used; $('freeCount').textContent=192-used; $('blockedCount').textContent=Object.values(data).filter(v=>v.Status==='Blocked'||v.Status==='Hold').length; $('testingCount').textContent=Object.values(data).filter(v=>v.Status==='Testing').length; $('passedCount').textContent=Object.values(data).filter(v=>v.Status==='Passed').length}
+  function select(id){selected=id; const col=id.match(/[A-Z]+/)[0]; const area=zones[col]; const v=getVal(id); $('selectedText').textContent=`Editing ${id}`; $('slotInput').value=id; $('areaInput').value=area; $('rackInput').value=v.RackSN||''; $('statusInput').value=v.Status||'Available'; $('notesInput').value=v.Notes||''; $('saveBtn').disabled=false; $('clearBtn').disabled=false; render()}
+  $('rackGrid').addEventListener('click',e=>{const b=e.target.closest('.slot'); if(!b||b.disabled)return; select(b.dataset.id)});
+  $('saveBtn').addEventListener('click',()=>{if(!selected)return; data[selected]={RackSN:$('rackInput').value.trim(),Status:$('statusInput').value,Notes:$('notesInput').value.trim(),UpdatedBy:'',UpdatedAt:new Date().toLocaleString()}; saveData(); render(); alert('Saved '+selected)});
+  $('clearBtn').addEventListener('click',()=>{if(!selected)return; delete data[selected]; saveData(); $('rackInput').value=''; $('statusInput').value='Available'; $('notesInput').value=''; render()});
+  function applyFilters(){const q=$('search').value.toLowerCase().trim(), area=$('areaFilter').value, status=$('statusFilter').value; document.querySelectorAll('.slot:not(.road)').forEach(b=>{const v=getVal(b.dataset.id); const hay=(b.dataset.id+' '+b.dataset.area+' '+v.RackSN+' '+v.Status+' '+v.Notes).toLowerCase(); const show=(!q||hay.includes(q))&&(area==='all'||b.dataset.area===area)&&(status==='all'||v.Status===status); b.classList.toggle('dim',!show)})}
+  ['search','areaFilter','statusFilter'].forEach(id=>$(id).addEventListener('input',applyFilters)); $('resetFilters').addEventListener('click',()=>{$('search').value='';$('areaFilter').value='all';$('statusFilter').value='all';applyFilters()});
+  $('clearAll').addEventListener('click',()=>{if(confirm('Clear all local rack data from this browser?')){data={};selected=null;saveData();render()}});
+  $('exportCsv').addEventListener('click',()=>{const rows=[['SlotID','Column','Row','Area','IsRoadway','RackSN','Status','Notes','UpdatedAt']]; cols.forEach(c=>{for(let r=1;r<=8;r++){const id=slotId(c,r),v=getVal(id); rows.push([id,c,r,zones[c],isRoad(c),v.RackSN||'',v.Status||'Available',v.Notes||'',v.UpdatedAt||''])}}); const csv=rows.map(row=>row.map(x=>'"'+String(x).replaceAll('"','""')+'"').join(',')).join('\n'); const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'})); a.download='outside-rack-map-export.csv'; a.click(); URL.revokeObjectURL(a.href)});
+  $('importFile').addEventListener('change',e=>{const file=e.target.files[0]; if(!file)return; const reader=new FileReader(); reader.onload=()=>{const lines=reader.result.split(/\r?\n/).filter(Boolean); const headers=parseCsv(lines.shift()); const idx=n=>headers.indexOf(n); const next={}; lines.forEach(line=>{const row=parseCsv(line),id=row[idx('SlotID')]; if(!id)return; next[id]={RackSN:row[idx('RackSN')]||'',Status:row[idx('Status')]||'Available',Notes:row[idx('Notes')]||'',UpdatedAt:row[idx('UpdatedAt')]||''}}); data=next; saveData(); render(); alert('CSV imported')}; reader.readAsText(file)});
+  function parseCsv(line){const out=[];let cur='',q=false;for(let i=0;i<line.length;i++){const ch=line[i]; if(ch==='"'){if(q&&line[i+1]==='"'){cur+='"';i++}else q=!q}else if(ch===','&&!q){out.push(cur);cur=''}else cur+=ch} out.push(cur); return out}
+  render();
+})();
+</script>
+</body>
+</html>
